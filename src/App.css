@@ -36,3 +36,11 @@
     transform: rotate(360deg);
   }
 }
+
+
+.map {
+    overflow: hidden;
+    background: green;
+    height: 100vh;
+    margin: 0px;   
+}
