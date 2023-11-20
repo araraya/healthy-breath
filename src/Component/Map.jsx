@@ -9,6 +9,7 @@ import {
   Marker,
   Popup,
 } from "react-leaflet";
+import "leaflet.heat";
 import aqi from "../Service/aqi";
 import * as turf from "@turf/turf";
 
@@ -49,25 +50,21 @@ function LeafletMap() {
 function UserMarker() {
   const [position, setPosition] = useState(null);
   const [randomPoints, setRandomPoints] = useState([]);
+  const [heatMap, setHeatMap] = useState([]);
   const map = useMap();
   useEffect(() => {
-    map.locate().on("locationfound", function (e) {
-      console.log(e);
+    map.locate().on("locationfound", async function (e) {
       setPosition(e.latlng);
       map.flyTo(e.latlng, map.getZoom());
       const mapBounds = map.getBounds();
-      console.log(mapBounds);
       const currentBbox = [
         mapBounds.getNorthEast().lat,
         mapBounds.getSouthWest().lng,
         mapBounds.getSouthWest().lat,
         mapBounds.getNorthEast().lng,
       ];
-      console.log(currentBbox);
       const randomPointsBbox = turf.randomPoint(25, { bbox: currentBbox });
-      const positionPoint = turf.point([e.latlng.lng, e.latlng.lat]);
-      console.log(positionPoint);
-      console.log(randomPointsBbox);
+      const positionPoint = turf.point([e.latlng.lat, e.latlng.lng]);
       setRandomPoints((r) => [...randomPoints, ...randomPointsBbox.features]);
       console.log(randomPoints);
       const radius = e.accuracy;
@@ -80,8 +77,16 @@ function UserMarker() {
 
       const allCoordinates = [...randomPointsBbox.features];
       allCoordinates.push(positionPoint);
-      console.log(allCoordinates);
-      aqi(allCoordinates);
+      const aqiArray = await aqi(allCoordinates);
+      const heatMapArray = aqiArray.map((coordinate) => {
+        return [
+          coordinate.geometry.coordinates[0],
+          coordinate.geometry.coordinates[1],
+          coordinate.properties.aqi,
+        ];
+      });
+      console.log(heatMapArray);
+      L.heatLayer(heatMapArray, { radius: 25 }).addTo(map);
     });
   }, [map]);
   if (position && randomPoints) {
@@ -94,7 +99,6 @@ function UserMarker() {
             Your longitude is {position.lng}
           </Popup>
         </Marker>
-
         <RandomPoints randomPoints={randomPoints} />
       </>
     );
@@ -114,5 +118,21 @@ function RandomPoints({ randomPoints }) {
       </Marker>
     );
   });
+}
+
+function HeatMap({ layers }) {
+  console.log(layers);
+  const map = useMap();
+  useEffect(() => {
+    const heatMapArray = layers.map((coordinate) => {
+      return [
+        coordinate.geometry.coordinates[1],
+        coordinate.geometry.coordinates[0],
+        coordinate.properties.aqi,
+      ];
+    });
+    console.log(heatMapArray);
+    L.heatLayer(heatMapArray).addTo(map);
+  }, [map]);
 }
 export default LeafletMap;
